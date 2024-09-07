@@ -140,7 +140,7 @@ img_path = Path(args.img_path)
 # if img_path.is_file():
 #     save_outputs(args.img_path, os.path.splitext(os.path.basename(args.img_path))[0])
 if img_path.is_dir():
-    images = glob.glob(args.img_path+'/*.jpg') + glob.glob(args.img_path+'/*.png') + glob.glob(args.img_path+'/*.JPG')
+    images = glob.glob(args.img_path+'/rgb*.jpg') + glob.glob(args.img_path+'/rgb*.png') + glob.glob(args.img_path+'/rgb*.JPG')
     for f in tqdm(images, desc=f"Estimating {args.task}"):
         save_outputs(f, os.path.splitext(os.path.basename(f))[0])
 else:
