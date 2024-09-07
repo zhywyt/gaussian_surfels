@@ -156,6 +156,15 @@ def fetchPly(path):
     normals = np.vstack([vertices['nx'], vertices['ny'], vertices['nz']]).T
     return BasicPointCloud(points=positions, colors=colors, normals=normals)
 
+def FetchPlywithoutNormal(path):
+    plydata = PlyData.read(path)
+    vertices = plydata['vertex']
+    positions = np.vstack([vertices['x'], vertices['y'], vertices['z']]).T
+    colors = np.vstack([vertices['red'], vertices['green'], vertices['blue']]).T / 255.0
+    # gen normal
+    normals = np.zeros_like(positions)
+    return BasicPointCloud(points=positions, colors=colors, normals=normals)
+
 def storePly(path, xyz, rgb, normal=None):
     # Define the dtype for the structured array
     dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
@@ -614,8 +623,10 @@ def readOurSceneInfo(path, eval, llffhold=8):
     nerf_normalization = getNerfppNorm(train_cam_infos)
     ply_path = os.path.join(path, "point_clouds/point_cloud.ply")
     try:
-        pcd = fetchPly(ply_path)
+        pcd = FetchPlywithoutNormal(ply_path)
+        print("[zhywyt]load ",ply_path,"successfly")
     except:
+        print("[error] Loads ",ply_path, "Error")
         pcd = None
 
     scene_info = SceneInfo(point_cloud=pcd,
