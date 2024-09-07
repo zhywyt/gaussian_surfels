@@ -51,6 +51,9 @@ class Scene:
         elif os.path.exists(os.path.join(args.source_path, "cameras.npz")):
             print("Found camera.npz file, assuming IDR data format!")
             scene_info = sceneLoadTypeCallbacks["IDR"](args.source_path, args.eval)
+        elif os.path.exists(os.path.join(args.source_path, "out")):
+            print("Found out floder, assuming OUR data format!")
+            scene_info = sceneLoadTypeCallbacks["OUR"](args.source_path, args.eval)
         else:
             assert False, "Could not recognize scene type!"
 

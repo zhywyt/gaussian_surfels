@@ -497,12 +497,138 @@ def readIDRSceneInfo(path, eval, testskip=8):
     
     return scene_info
 
+'''
+Our dataloader
+OurReadRT and OurReadCamera is copyright from clh
+'''
+def OurReadRT(filename):
+    A = np.zeros((4,4),dtype=np.float64)
+    with open(filename) as f:
+        lines = f.readlines()
+        A_row = 0
+        for line in lines:
+            list = line.strip('\n').split(' ')
+            A[A_row, :] = list[0:4]
+            A_row+=1
+    # A[:, 1] = -A[:, 1]
+    # A[:, 2] = -A[:, 2]
+    A[3,3] = 1
+    A = np.linalg.inv(A)
+    return A[0:3,0:3],A[3,0:3]
+def OurReadCamera(filename):
+    res = {
+        "w": 2448,
+        "h": 2048,
+        "fl_x": 0.0,
+        "fl_y": 0.0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0,
+        "camera_model": "OPENCV",
+        "frames": [],
+        "fovX": 0.0,
+        "fovY": 0.0,
+        "prcppoint": np.array([0, 0])
+    }
+    with open(filename) as f:
+        lines = f.readlines()
+        row = 0
+        for line in lines:
+            list = [i for i in line.strip('\n').split(' ') if i != '']
+            if row == 0:
+                res["fl_x"] = list[0]
+                res["cx"] = float(list[2])
+            if row == 1:
+                res["fl_y"] = list[1]
+                res["cy"] = float(list[2])
+            row += 1
+        res['fovX'] = 2 * np.arctan(res["w"] / (2 * float(res["fl_x"])))
+        res['fovY'] = 2 * np.arctan(res["h"] / (2 * float(res["fl_y"])))
+        res['prcppoint'] = np.array([res["cx"], res["cy"]])
+
+    return res
 
 
+def readOurCameras(ex_path, cam_in,image_folder):
+    cam_infos = []
+    width, height = 2048, 2448
+    images = os.listdir(image_folder)
+    for filename in images:
+        if filename.endswith('.jpg') and filename.startswith('rgb_'):
+            uid = int(filename.split('_')[1].split('.')[0])
+            sys.stdout.write('\r')
+            sys.stdout.write('Reading camera{}/{}'.format(uid, len(images)))
+            sys.stdout.flush()
+            # get the number in rgb_15.jpg
+            image_path = os.path.join(image_folder, filename)
+            image_name = filename
+            image = Image.open(image_path)
+            RT_path = os.path.join(ex_path, "RT_"+str(uid)+".txt")
+            R,T = OurReadRT(RT_path)
+
+            try:
+                monoN = read_monoData(f'{image_folder}/../normal/{image_name}_normal.npy')
+                try:
+                    monoD = read_monoData(f'{image_folder}/../depth/{image_name}_depth.npy')
+                except FileNotFoundError:
+                    monoD = np.zeros_like(monoN[:1])
+                mono = np.concatenate([monoN, monoD], 0)
+            except FileNotFoundError:
+                mono = None
+            try:
+                mask = load_mask(f'{image_folder}/../mask/mask_{image_name}.png')[None]
+            except:
+                mask = np.ones([1, image.size[1], image.size[0]]).astype(np.float32)
+
+            cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=cam_in['fovY'], FovX=cam_in['fovX'], prcppoint=cam_in['prcppoint'], image=image,
+                                    image_path=image_path, image_name=image_name, width=width, height=height, mask=mask, mono=mono)
+            cam_infos.append(cam_info)
+    sys.stdout.write('\n')
+    return cam_infos
+def readOurSceneInfo(path, eval, llffhold=8):
+    '''
+    path : fusai/001/
+
+    '''
+    print('Init zhywyt scene info')
+    try:
+        extrinsics_files = os.path.join(path, "out/pose_1")
+        intrinsics_files = os.path.join(path, "out/pose_1/cam_0.txt")
+        images = os.path.join(path, "out/rgbd")
+        print('intrinsics : '+intrinsics_files)
+        cam_intrinsics = OurReadCamera(intrinsics_files)
+    except:
+        print("[zhywyt]Error reading scene info")
+        return None
+    cam_infos_unsorted = readOurCameras(extrinsics_files, cam_intrinsics,images)
+    cam_infos = sorted(cam_infos_unsorted.copy(), key=lambda x : x.uid)
+    if eval:
+        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
+        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+    else:
+        train_cam_infos = cam_infos
+        test_cam_infos = []
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+    ply_path = os.path.join(path, "point_clouds/point_cloud.ply")
+    try:
+        pcd = fetchPly(ply_path)
+    except:
+        pcd = None
+
+    scene_info = SceneInfo(point_cloud=pcd,
+                        train_cameras=train_cam_infos,
+                        test_cameras=test_cam_infos,
+                        nerf_normalization=nerf_normalization,
+                        ply_path=ply_path)
+    return scene_info
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender" : readNerfSyntheticInfo,
-    "IDR": readIDRSceneInfo
+    "IDR": readIDRSceneInfo,
+    "OUR": readOurSceneInfo
 }
 
 
