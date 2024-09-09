@@ -76,7 +76,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             scale = 2
         elif iteration - 1 == 5000 + 1:
             scale = 1
-        # scale = 1
+        scale = 1
 
         # Pick a random Camera
         if not viewpoint_stack:
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int, default=[5_000, 10_000, 15_000, 20_000, 25_000, 30_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[5_000, 15_000, 30_000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[5_000, 10_000, 15_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
